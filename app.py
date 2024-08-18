@@ -60,15 +60,17 @@ st.set_page_config(page_title="Repo Lens", layout="wide")
 with st.sidebar:
     st.write("## 🔍 About")
     st.write(
-        "🛠️ Repo Lens is a tool for exploring GitHub repositories and interacting with an AI chatbot specialized in repository queries."
+        "🛠️ **Repo Lens** is a powerful tool for seamlessly exploring GitHub repositories. "
+        "With an integrated AI chatbot, it specializes in answering queries related to the repository's structure, files, and code, "
+        "making it easier to understand and navigate complex codebases."
     )
     st.write("## 📝 Guide")
     st.write(
-        "1. **🔑 Login**: Click the login button to authenticate with GitHub.\n"
-        "2. **🔑 Enter API Key**: Provide your Groq API key in the sidebar.\n"
-        "3. **🛠️ Select Model**: Choose the Groq model you want to use.\n"
-        "4. **🔗 Enter Repository URL**: Provide the full GitHub repository URL.\n"
-        "5. **💬 Explore and Chat**: View the repository structure and interact with the AI chatbot for repository-related queries."
+        "1. **🔑 Login**: Click the **Log in with GitHub** button to authenticate with your GitHub account.\n"
+        "2. **🔐 Enter API Key**: Input your Groq API key in the sidebar to enable AI functionalities.\n"
+        "3. **🛠️ Select Model**: Choose your preferred Groq model for AI interactions.\n"
+        "4. **🔗 Enter Repository URL**: Provide the complete GitHub repository URL to load its structure.\n"
+        "5. **💬 Chat and Explore**: Use the chat interface to ask questions and get insights about the repository's code and structure."
     )
 
     # Repo URL input and structure display
