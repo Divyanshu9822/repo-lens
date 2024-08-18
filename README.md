@@ -2,6 +2,8 @@
 
 🔍 **Repo Lens** is a powerful tool for seamlessly exploring GitHub repositories. With an integrated AI chatbot that is context-aware and remembers all conversation history, it specializes in answering queries related to the repository's structure, files, and code. This feature makes it easier to understand and navigate codebases.
 
+![image](https://github.com/user-attachments/assets/be421843-3d26-47dd-86ce-d781c1b44e86)
+
 ## Features
 
 - **GitHub Integration**: Authenticate with GitHub to access and explore repository contents.
