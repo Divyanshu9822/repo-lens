@@ -23,11 +23,16 @@ load_dotenv()
 TOOL_CALL_MODEL = "llama3-groq-70b-8192-tool-use-preview"
 
 # OAuth credentials
-GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
-GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+# GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID") # for local dev and deploy anywhere other than streamlit
+# GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET") # for local dev and deploy anywhere other than streamlit
+
+GITHUB_CLIENT_ID = st.secrets["GITHUB_CLIENT_ID"]  # for deployment on streamlit
+GITHUB_CLIENT_SECRET = st.secrets["GITHUB_CLIENT_SECRET"]  # for deployment on streamlit
 
 # OAuth redirect URI
-REDIRECT_URI = os.getenv("REDIRECT_URI")
+# REDIRECT_URI = os.getenv("REDIRECT_URI") # for local dev and deploy anywhere other than streamlit
+
+REDIRECT_URI = st.secrets["REDIRECT_URI"]  # for deployment on streamlit
 
 # Create an OAuth2 session
 oauth = OAuth2Session(
