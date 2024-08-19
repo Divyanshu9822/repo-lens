@@ -46,8 +46,8 @@ Before you start, ensure you have the following:
     - **Authorization callback URL**: `http://localhost:8501/`
     - Save your **Client ID** and **Client Secret**.
 
-5. **Set Up Environment Variables**:
-    Create a `.env` file in the root directory and add the following variables:
+5. **Set Up Stremalit Secrets**:
+    Create a `.streamlit` folder having `secrets.toml` file and add the following variables:
     ```env
     GITHUB_CLIENT_ID=your_github_client_id
     GITHUB_CLIENT_SECRET=your_github_client_secret
@@ -76,7 +76,7 @@ Before you start, ensure you have the following:
 When deploying your application:
 
 - Update the **Homepage URL** and **Authorization callback URL** in your GitHub OAuth settings to match your deployed URL.
-- Ensure that your `.env` file or environment variables are correctly configured for production use.
+- Ensure that you add your secrets to streamlit production settings as well.
 
 
 ## Contact
