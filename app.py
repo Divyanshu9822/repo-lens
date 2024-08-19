@@ -1,10 +1,5 @@
 import os
-from dotenv import load_dotenv
-from groq import Groq
 import streamlit as st
-import requests
-from authlib.integrations.requests_client import OAuth2Session
-from urllib.parse import urlparse
 from langchain.chains import LLMChain
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -14,44 +9,13 @@ from langchain_core.prompts import (
 from langchain_core.messages import SystemMessage
 from langchain.chains.conversation.memory import ConversationBufferWindowMemory
 from langchain_groq import ChatGroq
-import json
-import base64
-
-# Load environment variables
-load_dotenv()
-
-TOOL_CALL_MODEL = "llama3-groq-70b-8192-tool-use-preview"
-
-# OAuth credentials
-# GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID") # for local dev and deploy anywhere other than streamlit
-# GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET") # for local dev and deploy anywhere other than streamlit
-
-GITHUB_CLIENT_ID = st.secrets["GITHUB_CLIENT_ID"]  # for deployment on streamlit
-GITHUB_CLIENT_SECRET = st.secrets["GITHUB_CLIENT_SECRET"]  # for deployment on streamlit
-
-# OAuth redirect URI
-# REDIRECT_URI = os.getenv("REDIRECT_URI") # for local dev and deploy anywhere other than streamlit
-
-REDIRECT_URI = st.secrets["REDIRECT_URI"]  # for deployment on streamlit
+from components.repo import fetch_directory_contents
+from utils.github_utils import format_structure, parse_repo_url
+from components.auth import Auth
+from utils.ai_tooling import GroqClient
 
 # Create an OAuth2 session
-oauth = OAuth2Session(
-    client_id=GITHUB_CLIENT_ID,
-    client_secret=GITHUB_CLIENT_SECRET,
-    redirect_uri=REDIRECT_URI,
-)
-
-
-# Function to get file source code
-def fetch_file_source_code(file_path, repo_owner, repo_name, headers):
-    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        file_content = response.json().get("content", "")
-        return base64.b64decode(file_content).decode("utf-8")
-    else:
-        return f"Failed to fetch file: {response.status_code} - {response.text}"
-
+oauth = Auth()
 
 # Streamlit configuration
 st.set_page_config(page_title="Repo Lens", layout="wide")
@@ -82,53 +46,16 @@ with st.sidebar:
         if repo_url_input:
             token = st.session_state.token
             headers = {"Authorization": f"token {token['access_token']}"}
-            parsed_url = urlparse(repo_url_input)
-            path_parts = parsed_url.path.strip("/").split("/")
-
-            if len(path_parts) == 2:
-                repo_owner, repo_name = path_parts
+            
+            repo_owner, repo_name = parse_repo_url(repo_url_input)
+            if repo_owner and repo_name:
                 repo_api_url = (
                     f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/"
                 )
 
-                def fetch_directory_contents(url, headers):
-                    response = requests.get(url, headers=headers)
-                    if response.status_code == 200:
-                        contents = response.json()
-                        structure = []
-                        for item in contents:
-                            if item["type"] == "dir":
-                                subdir_url = item["url"]
-                                subdir_contents = fetch_directory_contents(
-                                    subdir_url, headers
-                                )
-                                structure.append(
-                                    {
-                                        "type": "dir",
-                                        "path": item["path"],
-                                        "contents": subdir_contents,
-                                    }
-                                )
-                            else:
-                                structure.append({"type": "file", "path": item["path"]})
-                        return structure
-                    else:
-                        st.error(
-                            f"🚨 Failed to fetch contents: {response.status_code} - {response.text}"
-                        )
-                        return []
-
-                repo_structure = fetch_directory_contents(repo_api_url, headers)
-
-                def format_structure(structure, level=0):
-                    result = ""
-                    for item in structure:
-                        if item["type"] == "dir":
-                            result += f"{'│   ' * level}├── 📁 {item['path']}\n"
-                            result += format_structure(item["contents"], level + 1)
-                        else:
-                            result += f"{'│   ' * level}├── 📄 {item['path']}\n"
-                    return result
+                repo_structure, status_code = fetch_directory_contents(repo_api_url, headers)
+                if status_code != 200:
+                    st.error(f"🚨 Failed to fetch repo content: {status_code}")
 
                 formatted_structure = format_structure(repo_structure)
                 st.write("### 📂 Repository Structure")
@@ -146,7 +73,6 @@ if "code" in st.query_params:
 
         try:
             token = oauth.fetch_token(
-                "https://github.com/login/oauth/access_token",
                 authorization_response=st.query_params,
                 code=code,
             )
@@ -157,9 +83,7 @@ if "code" in st.query_params:
 
 # Display login button if not logged in
 if "token" not in st.session_state:
-    auth_url, _ = oauth.create_authorization_url(
-        "https://github.com/login/oauth/authorize"
-    )
+    auth_url, _ = oauth.get_auth_url()
     st.write("## Welcome to Repo Lens 🕵️‍♂️")
     st.link_button("Log in with GitHub", auth_url)
 
@@ -194,86 +118,9 @@ if "token" in st.session_state:
         os.environ["GROQ_API_KEY"] = api_key
 
         # Initialize Groq client
-        client = Groq(api_key=api_key)
+        client = GroqClient(api_key=api_key)
 
         # Function to retrieve source code using the AI assistant
-        def retrieve_source_code(user_prompt, repo_owner, repo_name, token):
-            messages = [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are an AI assistant specialized in retrieving source code from a GitHub repository. "
-                        "Your task is to extract the file path from the user prompt and use the 'fetch_file_source_code' function "
-                        "to retrieve the file contents. If the prompt mentions a file name, assume it is located in the root directory."
-                    ),
-                },
-                {"role": "user", "content": user_prompt},
-            ]
-
-            tools = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "fetch_file_source_code",
-                        "description": "Fetch the source code of a file in the GitHub repository",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "file_path": {
-                                    "type": "string",
-                                    "description": "The path of the file to fetch",
-                                }
-                            },
-                            "required": ["file_path"],
-                        },
-                    },
-                }
-            ]
-
-            response = client.chat.completions.create(
-                model=TOOL_CALL_MODEL,
-                messages=messages,
-                tools=tools,
-                tool_choice="auto",
-                max_tokens=4096,
-            )
-
-            response_message = response.choices[0].message
-
-            tool_calls = response_message.tool_calls
-
-            if tool_calls:
-                available_functions = {
-                    "fetch_file_source_code": lambda file_path: fetch_file_source_code(
-                        file_path,
-                        repo_owner,
-                        repo_name,
-                        {"Authorization": f"token {token}"},
-                    ),
-                }
-                for tool_call in tool_calls:
-                    function_name = tool_call.function.name
-                    function_to_call = available_functions[function_name]
-                    function_args = json.loads(tool_call.function.arguments)
-                    file_path = function_args.get("file_path")
-                    function_response = function_to_call(file_path=file_path)
-
-                    messages.append(
-                        {
-                            "tool_call_id": tool_call.id,
-                            "role": "tool",
-                            "name": function_name,
-                            "content": json.dumps(function_response),
-                        }
-                    )
-
-                second_response = client.chat.completions.create(
-                    model=TOOL_CALL_MODEL, messages=messages
-                )
-                return second_response.choices[0].message.content
-            else:
-                return "🚨 No tool calls found in the response."
-
         if "groq_model" not in st.session_state:
             st.session_state["groq_model"] = selected_model
 
@@ -302,7 +149,11 @@ if "token" in st.session_state:
             chat_prompt = ChatPromptTemplate.from_messages(
                 [
                     SystemMessage(
-                        content=f"You are an AI assistant specialized in answering questions and providing insights about GitHub repository '{repo_name}' owned by '{repo_owner}'. The structure of the repository is as follows: '{formatted_structure}'. Your role is to help users understand and navigate the codebase, offering explanations and insights about files, directories, and code within the repository."
+                        content=f"You are an AI assistant specialized in answering questions and providing insights about GitHub repository '{repo_name}' owned by '{repo_owner}'." 
+                        
+                        f"The structure of the repository is as follows:\n '{formatted_structure}'."
+                        
+                        f"Your role is to help users understand and navigate the codebase, offering explanations and insights about files, directories, and code within the repository."
                     ),
                     MessagesPlaceholder(variable_name="chat_history"),
                     HumanMessagePromptTemplate.from_template("{human_input}"),
@@ -323,7 +174,7 @@ if "token" in st.session_state:
             )
 
             # Retrieve source code using the extracted file path
-            source_code = retrieve_source_code(
+            source_code = client.retrieve_source_code(
                 prompt, repo_owner, repo_name, st.session_state.token["access_token"]
             )
 
