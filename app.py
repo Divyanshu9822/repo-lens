@@ -46,14 +46,16 @@ with st.sidebar:
         if repo_url_input:
             token = st.session_state.token
             headers = {"Authorization": f"token {token['access_token']}"}
-            
+
             repo_owner, repo_name = parse_repo_url(repo_url_input)
             if repo_owner and repo_name:
                 repo_api_url = (
                     f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/"
                 )
 
-                repo_structure, status_code = fetch_directory_contents(repo_api_url, headers)
+                repo_structure, status_code = fetch_directory_contents(
+                    repo_api_url, headers
+                )
                 if status_code != 200:
                     st.error(f"🚨 Failed to fetch repo content: {status_code}")
 
@@ -114,7 +116,7 @@ if "token" in st.session_state:
         "Note: Each model has its own limits on requests and tokens. If you exceed these limits, you may encounter runtime errors."
     )
 
-    if api_key:
+    if api_key and repo_url_input:
         os.environ["GROQ_API_KEY"] = api_key
 
         # Initialize Groq client
@@ -149,10 +151,8 @@ if "token" in st.session_state:
             chat_prompt = ChatPromptTemplate.from_messages(
                 [
                     SystemMessage(
-                        content=f"You are an AI assistant specialized in answering questions and providing insights about GitHub repository '{repo_name}' owned by '{repo_owner}'." 
-                        
+                        content=f"You are an AI assistant specialized in answering questions and providing insights about GitHub repository '{repo_name}' owned by '{repo_owner}'."
                         f"The structure of the repository is as follows:\n '{formatted_structure}'."
-                        
                         f"Your role is to help users understand and navigate the codebase, offering explanations and insights about files, directories, and code within the repository."
                     ),
                     MessagesPlaceholder(variable_name="chat_history"),
@@ -193,7 +193,7 @@ if "token" in st.session_state:
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.session_state.chat_history.append({"human": prompt, "AI": response})
     else:
-        st.error("Please enter your API key in the sidebar to start chatting.")
+        st.error("Enter your API key and repo link in the sidebar to start chatting.")
 else:
     st.write(
         "🔒 Please log in to view the repository structure and interact with an AI chatbot specialized in repository queries."
