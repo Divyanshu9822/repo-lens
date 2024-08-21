@@ -11,9 +11,15 @@ def parse_repo_url(repo_url):
 def format_structure(structure, level=0):
     result = ""
     for item in structure:
-        if item["type"] == "dir":
-            result += f"{'│   ' * level}├── 📁 {item['path']}\n"
-            result += format_structure(item["contents"], level + 1)
+        if isinstance(item, dict) and "type" in item:
+            if item["type"] == "dir":
+                result += f"{'│   ' * level}├── 📁 {item['path']}\n"
+                contents = item["contents"]
+                if isinstance(contents, tuple):
+                    contents = contents[0] 
+                result += format_structure(contents, level + 1)
+            else:
+                result += f"{'│   ' * level}├── 📄 {item['path']}\n"
         else:
-            result += f"{'│   ' * level}├── 📄 {item['path']}\n"
+            result += f"{'│   ' * level}└── [Unexpected structure or missing type]\n"
     return result
